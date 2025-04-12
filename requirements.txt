@@ -1,0 +1,11 @@
+# 
+
+LogNNet==1.7
+numpy==2.1.0
+librosa==0.11.0rc1
+pandas==2.2.3
+pesq==0.0.4
+scipy==1.14.1
+scikit-learn==1.5.2
+pystoi==0.4.1
+PyWavelets==1.8.0

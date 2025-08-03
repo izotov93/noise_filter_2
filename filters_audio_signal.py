@@ -502,7 +502,7 @@ if __name__ == "__main__":
     training_end = 4
 
     # Determine directories for clean and noisy signals
-    clean_dir = os.path.join(dir_contained_original_sounds, "clean")
+    clean_dir = os.path.join(dir_contained_original_sounds, 'clean')
     # Get the list of files from the folder with clean signals (files like 'spXX.wav')
     clean_files = sorted([f for f in os.listdir(clean_dir) if f.startswith('sp') and f.endswith('.wav')])
     # Extract file numbers (assuming the number is always two digits)
@@ -516,11 +516,13 @@ if __name__ == "__main__":
     print(f'\nSEARCH OPTIMAL PARAMETERS - mode - {mode}\n')
 
     optimal_params = {}
-    LogNNet_info_params = ['HVG_NW_1', 'NO_HVG_NW_1', 'HVG_NW_3', 'NO_HVG_NW_3', 'HVG_NW_10', 'NO_HVG_NW_10']
+    LogNNet_info_params = ['HVG_NW_1', 'NO_HVG_NW_1', 'HVG_NW_3',
+                           'NO_HVG_NW_3', 'HVG_NW_10', 'NO_HVG_NW_10']
 
     noise_name = ['white_noise_0.01', 'white_noise_0.05', 'white_noise_0.1',
-                  'white_noise_0.2', 'white_noise_0.3', 'white_noise_0.4']
-    noise_name = noise_name +  ['airport', 'babble', 'car', 'exhibition', 'restaurant', 'station', 'street', 'train', 'noise0.1']
+                  'white_noise_0.2', 'white_noise_0.3', 'white_noise_0.4',
+                  'airport', 'babble', 'car', 'exhibition', 'restaurant',
+                  'station', 'street', 'train']
 
     use_predict_info = None
     prefix_out_name = None

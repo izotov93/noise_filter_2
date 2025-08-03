@@ -141,7 +141,7 @@ def main():
 
         #  mean ["R2", "MAE", "PESQ", "SNR", "STOI"]
         res_metric_noise[noise] = np.mean(np.array(res_metric_sound), axis=0)
-        row = '\t'.join(str(round(val, 6)) for val in res_metric_noise[noise])
+        row = ' '.join(str(round(val, 6)) for val in res_metric_noise[noise])
         print(f'{noise} {row}')
 
 

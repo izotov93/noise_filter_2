@@ -99,7 +99,7 @@ def apply_wavelet_denoising(noisy_signal: np.ndarray, wavelet: str = 'db8', leve
 
     wavelet_options = ['db1', 'db2', 'db4', 'db8', 'sym2', 'sym4']
     if isinstance(wavelet, int):
-        wavelet = wavelet_options[min(wavelet, len(wavelet_options)-1)]
+        wavelet = wavelet_options[min(wavelet, len(wavelet_options) - 1)]
 
     level = int(round(level))
     thresh_coeff = float(thresh_coeff)
@@ -107,7 +107,7 @@ def apply_wavelet_denoising(noisy_signal: np.ndarray, wavelet: str = 'db8', leve
     mode_options = ['soft', 'hard']
 
     # Perform wavelet decomposition
-    thresh_mode_str = mode_options[min(thresh_mode, len(mode_options)-1)]
+    thresh_mode_str = mode_options[min(thresh_mode, len(mode_options) - 1)]
     coeff = pywt.wavedec(noisy_signal, wavelet, mode="per")
 
     #  Estimate the noise standard deviation
@@ -213,15 +213,15 @@ def optimize_filter(filter_func, param_bounds: list, clean_signal: np.ndarray,
         # Maximize PESQ
         return -compute_pesq(clean_signal, filtered_signal, fs)
 
-    result = differential_evolution(objective, param_bounds, strategy='best1bin', tol=1e-2,  maxiter=10)
+    result = differential_evolution(objective, param_bounds, strategy='best1bin', tol=1e-2, maxiter=10)
     # Convert final parameters according to int_indices
     converted_result = [int(round(p)) if i in int_indices else p for i, p in enumerate(result.x)]
     return converted_result
 
 
 def train_optimal_params_filters(clean_dir: str, noisy_dir: str, training_ids: list,
-                                  noise: str, snr_level: int, pred_prefix: str = '',
-                                  pred_suffix: str = '') -> dict:
+                                 noise: str, snr_level: int, pred_prefix: str = '',
+                                 pred_suffix: str = '') -> dict:
     """
     Trains optimal filter parameters by combining clean and noisy signals.
 
@@ -332,7 +332,8 @@ def apply_filter_by_optimal_params(dir_contained_sounds: str, dir_pred_sound: st
         :return: A dictionary with average PESQ results for each noise type.
     """
 
-    prefix_out_name = 'filter_before' if prefix_out_name is None else prefix_out_name
+    prefix_out_name = 'standard_filters' if prefix_out_name is None else prefix_out_name
+
     result_test_all = {}
     clean_dir = os.path.join(dir_contained_sounds, "clean")
 
@@ -385,7 +386,7 @@ def apply_filter_by_optimal_params(dir_contained_sounds: str, dir_pred_sound: st
                                                                 filtered_signal[filter_name],
                                                                 fs_test))
 
-                filter_path = os.path.join(dir_contained_sounds, prefix_out_name, filter_name, f'{snr_level}dB', noise)
+                filter_path = os.path.join(prefix_out_name, filter_name, f'{snr_level}dB', noise)
                 os.makedirs(filter_path, exist_ok=True)
                 wav_file = os.path.join(filter_path, f'{prefix_out_name}_sp{id_}_{noise}_sn{snr_level}.wav')
                 wavfile.write(wav_file, fs_test, filtered_signal[filter_name])
@@ -402,10 +403,9 @@ def apply_filter_by_optimal_params(dir_contained_sounds: str, dir_pred_sound: st
 
 def training_optimal_params_by_original_sounds(dir_contained_sounds: str, training_ids: list,
                                                snr_level: int, out_file_name: str,
-                                               noise_name: list = None, ) -> str:
+                                               noise_name: list = None) -> dict:
     """
     Trains to obtain optimal filter parameters for original sounds across different types of noise.
-
 
         :param dir_contained_sounds: Directory containing clean and noisy audio files.
         :param training_ids: List of identifiers for the training audio files.
@@ -421,6 +421,7 @@ def training_optimal_params_by_original_sounds(dir_contained_sounds: str, traini
         noise_name = ['airport', 'babble', 'car', 'exhibition', 'restaurant', 'station', 'street', 'train']
 
     clean_dir = os.path.join(dir_contained_sounds, "clean")
+    optimal_params = {}
     for noise in noise_name:
         noisy_dir = os.path.join(dir_contained_sounds, noise, f"{snr_level}dB")
 
@@ -439,7 +440,7 @@ def training_optimal_params_by_original_sounds(dir_contained_sounds: str, traini
 def training_optimal_params_by_predict_sound(dir_clear_sound: str, dir_pred_sound: str,
                                              training_ids: list, snr_level: int, info: str,
                                              pred_suffix: str, out_file_name: str,
-                                             noise_name: list = None, pred_prefix: str = 'pred_') -> str:
+                                             noise_name: list = None, pred_prefix: str = 'pred_') -> dict:
     """
     Trains to obtain optimal filter parameters from predicted sound data across different types of noise.
 
@@ -482,7 +483,6 @@ def training_optimal_params_by_predict_sound(dir_clear_sound: str, dir_pred_soun
     return optimal_params
 
 
-
 if __name__ == "__main__":
 
     # Operation mode flag
@@ -516,8 +516,8 @@ if __name__ == "__main__":
     print(f'\nSEARCH OPTIMAL PARAMETERS - mode - {mode}\n')
 
     optimal_params = {}
-    LogNNet_info_params = ['HVG_NW_1', 'NO_HVG_NW_1', 'HVG_NW_3',
-                           'NO_HVG_NW_3', 'HVG_NW_10', 'NO_HVG_NW_10']
+    LogNNet_info_params = ['HVG_HW_1', 'NO_HVG_HW_1', 'HVG_HW_3',
+                           'NO_HVG_HW_3', 'HVG_HW_10', 'NO_HVG_HW_10']
 
     noise_name = ['white_noise_0.01', 'white_noise_0.05', 'white_noise_0.1',
                   'white_noise_0.2', 'white_noise_0.3', 'white_noise_0.4',
@@ -548,21 +548,11 @@ if __name__ == "__main__":
                 snr_level=snr_level,
                 pred_prefix='pred_',
                 pred_suffix=f'_{info}',
-                out_file_name = os.path.join(dir_saving_optimal_params, f'optimal_params_{info}.json')
+                out_file_name=os.path.join(dir_saving_optimal_params, f'optimal_params_{info}.json')
             )
 
             use_predict_info = info
-            prefix_out_name = 'filter_after'
-
-
-    # Load optimal params from original sounds
-    # OPTIONS
-    #with open(os.path.join(dir_saving_optimal_params, 'optimal_params_filters_from_original.json'), 'r') as json_file:
-    #    optimal_params = json.load(json_file)
-
-    # Load optimal params from LogNNet predicted sounds
-    #with open(os.path.join(dir_saving_optimal_params, f'optimal_params_{use_predict_info}.json'), 'r') as json_file:
-    #    optimal_params = json.load(json_file)
+            prefix_out_name = 'LogNNet_and_standard_filters'
 
     str_out = 'BY ORIGINAL SOUND' if use_predict_info is None else f'BY LogNNet ({use_predict_info}) PREDICTION SOUND'
     print(f'\nTEST FILTERS {str_out}')
@@ -575,4 +565,3 @@ if __name__ == "__main__":
                                                  optimal_params=optimal_params,
                                                  use_predict_info=use_predict_info,
                                                  prefix_out_name=prefix_out_name)
-

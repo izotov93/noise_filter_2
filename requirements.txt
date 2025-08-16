@@ -1,5 +1,3 @@
-# 
-
 LogNNet==1.7
 numpy==2.1.0
 librosa==0.11.0rc1

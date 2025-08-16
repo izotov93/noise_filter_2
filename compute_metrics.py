@@ -59,52 +59,69 @@ def synchronize_signals(signal_one: np.ndarray, signal_two: np.ndarray) -> Tuple
         return signal_one, signal_two_trimmed
 
     else:
-        # Lengths are equal, return the originals signals
+        # Lengths are equal, return the original signals
         return signal_one, signal_two
 
 
-def main():
-    dir_contained_original_sounds = 'NOIZEUS'
-    snr_level = 5
-    dir_contained_predict_sounds = 'LogNNet_filtered_sounds'
-    use_predict_info = 'NO_HVG_NW_1'
+def computing_metrics(mode: str = 'original', additional_LogNNet_param = None, name_filter = None):
+    """
+        Computes performance metrics for different noise conditions and signal processing modes.
 
-    # Operation mode flag
-    # Options: 'original', 'predict'
-    mode = 'predict'
+        This function calculates various metrics (R2, MAE, PESQ, SNR, STOI) for audio signals
+        across different noise levels and processing modes.
+
+        :param mode: Processing mode for signal analysis.
+                     Options include 'original', 'LogNNet_filtered_sounds', 'LogNNet_and_standard_filter'.
+                     Defaults to 'original'.
+        :param additional_LogNNet_param: Optional parameter for prediction-specific information.
+        :param name_filter: Optional name of the filter used in signal processing.
+
+        :return: Prints and stores performance metrics for each noise condition.
+                 Metrics include mean values of:
+                 - R2 (coefficient of determination)
+                 - MAE (mean absolute error)
+                 - PESQ (perceptual evaluation of speech quality)
+                 - SNR (signal-to-noise ratio)
+                 - STOI (short-time objective intelligibility)
+        """
+    # Configuration parameters - can be modified as needed
+    dir_contained_original_sounds = 'NOIZEUS'
+    snr_level = 5 # Can be changed to 10, 15, or 20
+    dir_contained_filtered_LogNNet_sounds = 'LogNNet_filtered_sounds'
+    dir_contained_filtered_sounds_after_LogNNet = 'LogNNet_and_standard_filters'
+
+    noise_name = [d for d in os.listdir(dir_contained_original_sounds)
+        if os.path.isdir(os.path.join(dir_contained_original_sounds, d)) and d != 'clean']
 
     clean_dir = os.path.join(dir_contained_original_sounds, 'clean')
     clean_files = sorted([f for f in os.listdir(clean_dir) if f.startswith('sp') and f.endswith('.wav')])
     available_ids = sorted([f[2:4] for f in clean_files])
 
-    # Set the range for the training set (e.g., from 01 to 04)
-    training_start = 1
-    training_end = 4
+    addition_info = f'\nMode - {mode}'
+    addition_info += f' - {additional_LogNNet_param}' if additional_LogNNet_param is not None else ''
+    addition_info += f' {name_filter} filter' if name_filter is not None else ''
 
-    # Form lists of IDs for the training and test sets
-    training_ids = [f'{i:02d}' for i in range(training_start, training_end + 1)]
-    available_ids = [id_ for id_ in available_ids if id_ not in training_ids]
-
-    res_metric_noise = {}
-
-    noise_name = ['white_noise_0.01', 'white_noise_0.05', 'white_noise_0.1',
-                  'white_noise_0.2', 'white_noise_0.3', 'white_noise_0.4',
-                  'airport', 'babble', 'car', 'exhibition', 'restaurant',
-                  'station', 'street', 'train']
-
-    print(f'Computing metrics from {mode} sounds\n')
+    print(addition_info)
+    accumulated_results = {}
     print('noise\t"R2"\t"MAE"\t"PESQ"\t"SNR"\t"STOI"')
     for noise in noise_name:
         res_metric_sound = []
         for sound in available_ids:
-            clean_filename = os.path.join(dir_contained_original_sounds, 'clean', f'sp{sound}.wav')
+            clean_filename = os.path.join(clean_dir, f'sp{sound}.wav')
 
             if mode == 'original':
                 noisy_filename = os.path.join(dir_contained_original_sounds, noise,
                                               f'{snr_level}dB', f'sp{sound}_{noise}_sn{snr_level}.wav')
-            elif mode == 'predict':
-                noisy_filename = os.path.join(dir_contained_predict_sounds, noise, f"{snr_level}dB", use_predict_info,
-                                              f'pred_sp{sound}_{noise}_sn{snr_level}_{use_predict_info}.wav')
+
+            elif mode == 'LogNNet_filtered_sounds':
+                noisy_filename = os.path.join(dir_contained_filtered_LogNNet_sounds, noise,
+                                              f"{snr_level}dB", additional_LogNNet_param,
+                                              f'pred_sp{sound}_{noise}_sn{snr_level}_{additional_LogNNet_param}.wav')
+
+            elif mode == 'LogNNet_and_standard_filter':
+                noisy_filename = os.path.join(dir_contained_filtered_sounds_after_LogNNet,
+                                              name_filter, f"{snr_level}dB", noise,
+                                              f'LogNNet_and_standard_filters_sp{sound}_{noise}_sn{snr_level}.wav')
             else:
                 print('Error. Wrong mode!')
                 exit(0)
@@ -113,9 +130,7 @@ def main():
             fs_noisy, noisy_signal = wavfile.read(noisy_filename)
             clean_signal, noisy_signal = synchronize_signals(clean_signal, noisy_signal)
 
-            # compute PESQ
             pesq_score = pesq(fs, clean_signal, noisy_signal, 'wb' if fs != 8000 else 'nb')
-            # compute STOI
             stoi_score = stoi(clean_signal, noisy_signal, fs)
 
             # Loop over k from 0.5 to 1.5 in 0.01 increments,
@@ -140,10 +155,24 @@ def main():
                                      float(np.max(inter_res[:, 4]))])
 
         #  mean ["R2", "MAE", "PESQ", "SNR", "STOI"]
-        res_metric_noise[noise] = np.mean(np.array(res_metric_sound), axis=0)
-        row = ' '.join(str(round(val, 6)) for val in res_metric_noise[noise])
+        accumulated_results[noise] = np.mean(np.array(res_metric_sound), axis=0)
+        row = ' '.join(str(round(val, 6)) for val in accumulated_results[noise])
         print(f'{noise} {row}')
 
 
 if __name__ == '__main__':
-    main()
+    # Options: mode - 'original', 'LogNNet_filtered_sounds', 'LogNNet_and_standard_filter'
+    # Options: use_predict_info - 'HVG_HW_1', 'NO_HVG_HW_1', 'HVG_HW_3', 'NO_HVG_HW_3', 'HVG_HW_10', 'NO_HVG_HW_10'
+    # Options: filter_name - 'Butter', 'Kalman', 'Kalman', 'Savgol', 'Wavelet', 'Wiener'
+
+    # Calculation of metrics originals sounds
+    computing_metrics(mode='original')
+
+    # Calculation of metrics filtered LogNNet sounds
+    for use_predict_info in ['HVG_HW_1', 'NO_HVG_HW_1', 'HVG_HW_3', 'NO_HVG_HW_3', 'HVG_HW_10', 'NO_HVG_HW_10']:
+        computing_metrics(mode='LogNNet_filtered_sounds', additional_LogNNet_param=use_predict_info)
+
+    # calculation of metrics after applying standard filters on LogNNet filtered sound
+    for name_filter in ['Butter', 'Kalman', 'Savgol', 'Wavelet', 'Wiener']:
+        for info in ['HVG_HW_1', 'NO_HVG_HW_1', 'HVG_HW_3', 'NO_HVG_HW_3', 'HVG_HW_10', 'NO_HVG_HW_10']:
+            computing_metrics(mode='LogNNet_and_standard_filter', additional_LogNNet_param=info, name_filter=name_filter)

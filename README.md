@@ -1,4 +1,4 @@
-# Advanced Noise Filtering Techniques with LogNNet: Evaluation Across White and Real-World Noise Types
+# Hybrid Deep Filtering with LogNNet: Complex Spectral Filters for Robust Speech Denoising
 
 This repository contains tools for evaluating various noise filtering methods in audio signals, including classical filters and modern LogNNet-based approaches. The system supports both white noise and real-world noise types.
 
@@ -31,10 +31,11 @@ This repository contains tools for evaluating various noise filtering methods in
 - pandas
 - pesq
 - pystoi
+- PyWavelets
 
 ### Installing Dependencies
 ```bash
-pip install numpy scipy scikit-learn librosa soundfile matplotlib pandas pesq pystoi
+pip install numpy scipy scikit-learn librosa soundfile matplotlib pandas pesq pystoi PyWavelets
 ```
 
 ## Usage
@@ -52,16 +53,19 @@ python generate_audio_file.py
 The script creates the following folder structure:
 ```
 NOIZEUS/
-├── white_noise_0.1/
+
+├── airport
 │   ├── 5dB/
-│   │   ├── sp01_white_noise_0.1_sn5.wav
-│   │   ├── sp02_white_noise_0.1_sn5.wav
+│   │   ├── sp01_airport_sn5.wav
+│   │   ├── sp02_airport_sn5.wav
 │   │   └── ...
 │   ├── 10dB/
 │   ├── 15dB/
 │   └── 20dB/
-├── white_noise_0.2/
-├── white_noise_0.3/
+├── ....
+├── train/
+├── white_noise_0.01/
+├── white_noise_0.1/
 └── ...
 ```
 
@@ -82,20 +86,20 @@ python filters_audio_signal.py
 #### Main Configuration Parameters:
 Open the `filters_audio_signal.py` file and find the `if __name__ == "__main__":` block. Main parameters to modify:
 
-
 ```python
 if __name__ == "__main__":
-    # Operation mode (MAIN PARAMETER)
-    mode = 'train_predicted'  # Options: 'train_original', 'train_predicted', 'test'
-    
-    # Directories
-    dir_contained_original_sounds = 'NOIZEUS'          # Folder with original sounds
-    dir_contained_predict_sounds = 'LogNNet_filtered_sounds'  # Folder with LogNNet predictions
-    
-    # Dataset parameters
-    snr_level = 5              # SNR level in dB (5, 10, 15, 20)
-    training_start = 1         # Starting file number for training
-    training_end = 4           # Ending file number for training
+  # Operation mode (MAIN PARAMETER)
+  mode = 'train_predicted'  # Options: 'train_original', 'train_predicted', 'test'
+
+  # Directories
+  dir_contained_original_sounds = 'NOIZEUS'  # Folder with original sounds
+  dir_contained_predict_sounds = 'LogNNet_filtered_sounds'  # Folder with LogNNet predictions
+  dir_saving_optimal_params = 'optimal_params'  # Folder for saving parameters
+
+  # Dataset parameters
+  snr_level = 5  # SNR level in dB (5, 10, 15, 20)
+  training_start = 1  # Starting file number for training
+  training_end = 4  # Ending file number for training
 ```
 
 #### Operation Modes:
@@ -106,12 +110,20 @@ if __name__ == "__main__":
 
 **2. `mode = 'train_predicted'`** - Training on LogNNet preprocessed sounds
 - Finds optimal filter parameters for additional cleaning after LogNNet
-- Processes all LogNNet variants: `HVG_NW_1`, `NO_HVG_NW_1`, `HVG_NW_3`, `NO_HVG_NW_3`, `HVG_NW_10`, `NO_HVG_NW_10`
-- Saves parameters for each variant separately
+- Processes all LogNNet variants: `HVG_HW_1`, `NO_HVG_HW_1`, `HVG_HW_3`, `NO_HVG_HW_3`, `HVG_HW_10`, `NO_HVG_HW_10`
+- Saves parameters for each variant to `optimal_params/optimal_params_{variant}.json`
 
-**3. `mode = 'test'`** - Testing with found parameters
-- Applies found optimal parameters to test files
-- Requires prior execution of training mode
+**3. `mode = 'test'`** - Testing with optimal parameters
+- Automatically determines testing mode based on available parameter files and configuration
+- If `use_predict_info` is None: tests with parameters from original sounds
+- If `use_predict_info` is set: tests with parameters from LogNNet variant
+- Creates filtered files with appropriate prefixes
+
+#### Important Notes:
+- The script automatically loads and uses optimal parameters when in test mode
+- Parameters are loaded from JSON files in the `optimal_params/` directory
+- If testing with LogNNet variants, parameters are loaded sequentially for each variant
+- All noise types and filter types are processed automatically
 
 #### Supported Noise Types:
 The script automatically processes all noise types:
@@ -131,31 +143,39 @@ The script always applies **all available classical filters**:
 - **Filtered files**: created during testing
 
 #### Output File Structure for Filtered Audio:
-When running in `test` mode, the script creates filtered audio files in the following structure:
+When running in testing modes, the script creates filtered audio files in different structures:
+
+**For testing with original sound parameters (mode = 'test' with use_predict_info = None):**
 ```
-NOIZEUS/
-└── filter_after/                    # Created when prefix_out_name = 'filter_after'
-    ├── wiener/                      # Wiener filter results
-    │   ├── 5dB/
-    │   │   ├── white_noise_0.1/
-    │   │   │   ├── filter_after_sp05_white_noise_0.1_sn5.wav
-    │   │   │   ├── filter_after_sp06_white_noise_0.1_sn5.wav
-    │   │   │   └── ...
-    │   │   ├── airport/
-    │   │   ├── babble/
-    │   │   └── ...
-    │   ├── 10dB/
-    │   └── ...
-    ├── kalman/                      # Kalman filter results
-    ├── wavelet/                     # Wavelet filter results
-    ├── savgol/                      # Savitzky-Golay filter results
-    └── butterworth/                 # Butterworth filter results
+standard_filters/                    # Root directory for standard filters
+├── Wiener/                          # Wiener filter results
+│   ├── 5dB/
+│   │   ├── white_noise_0.1/
+│   │   │   ├── standart_filters_sp05_white_noise_0.1_sn5.wav
+│   │   │   └── ...
+│   │   └── airport/
+│   └── 10dB/
+└── Kalman/                          # Other filter results
+```
+
+**For `test_predicted` mode:**
+```
+LogNNet_and_standard_filters/        # Root directory for LogNNet + standard filters
+├── Wiener/                          # Wiener filter results
+│   ├── 5dB/
+│   │   ├── white_noise_0.1/
+│   │   │   ├── LogNNet_and_standard_filters_sp05_white_noise_0.1_sn5.wav
+│   │   │   └── ...
+│   │   └── airport/
+│   └── 10dB/
+└── Kalman/                          # Other filter results
 ```
 
 #### Filtered File Naming Convention:
-- **Format**: `{prefix_out_name}_sp{file_id}_{noise_type}_sn{snr_level}.wav`
-- **Example**: `filter_after_sp05_white_noise_0.1_sn5.wav`
-  - `filter_after`: prefix indicating post-LogNNet filtering
+- **Standard filters testing**: `standard_filters_sp{file_id}_{noise_type}_sn{snr_level}.wav`
+- **LogNNet + standard filters testing**: `LogNNet_and_standard_filters_sp{file_id}_{noise_type}_sn{snr_level}.wav`
+- **Example**: `LogNNet_and_standard_filters_sp05_white_noise_0.1_sn5.wav`
+  - `LogNNet_and_standard_filters`: prefix indicating combined filtering approach
   - `sp05`: original file identifier (sp05.wav)
   - `white_noise_0.1`: noise type
   - `sn5`: SNR level (5dB)
@@ -170,41 +190,44 @@ python compute_metrics.py
 ```
 
 #### Main Configuration Parameters:
-Open the `compute_metrics.py` file and find the `main()` function. Main parameters:
+Open the `compute_metrics.py` file and find the block `if __name__ == '__main__':` Main parameters:
 
 ```python
-def main():
-    # Directories
-    dir_contained_original_sounds = 'NOIZEUS'
-    dir_contained_predict_sounds = 'LogNNet_filtered_sounds'
-    
-    # Parameters
-    snr_level = 5                    # SNR level (5, 10, 15, 20)
-    use_predict_info = 'NO_HVG_NW_1' # LogNNet variant for 'predict' mode
-    
-    # Operation mode (MAIN PARAMETER)
-    mode = 'predict'                 # Options: 'original', 'predict'
-    
-    # Data split settings
-    training_start = 1               # Starting number for training set
-    training_end = 4                 # Ending number for training set
+# Main configuration in the script:
+# Configuration parameters - can be modified as needed
+dir_contained_original_sounds = 'NOIZEUS'
+snr_level = 5  # SNR level (5, 10, 15, 20)
+dir_contained_filtered_LogNNet_sounds = 'LogNNet_filtered_sounds'
+dir_contained_filtered_sounds_after_LogNNet = 'LogNNet_and_standard_filters'
 ```
 
 #### Operation Modes:
 
 **1. `mode = 'original'`** - Calculate metrics for original noisy files
-- Compares clean files with noisy files (before processing)
-- Shows baseline quality before applying filters
+- Compares clean files with noisy files (before any processing)
+- Shows baseline quality before applying any filters
 
-**2. `mode = 'predict'`** - Calculate metrics for LogNNet processed files
-- Compares clean files with files after LogNNet processing
-- Shows quality after applying neural network filtering
-- Requires specifying LogNNet variant in `use_predict_info`
+**2. `mode = 'LogNNet_filter'`** - Calculate metrics for LogNNet processed files
+- Compares clean files with files after LogNNet processing only
+- Shows quality improvement from neural network filtering
+- Requires specifying LogNNet variant in `additional_LogNNet_param`
+
+**3. `mode = 'LogNNet_and_standard_filter'`** - Calculate metrics for combined filtering
+- Compares clean files with files processed by LogNNet + standard filters
+- Shows quality after applying both neural network and classical filtering
+- Requires specifying both LogNNet variant and filter name
 
 #### Available LogNNet Variants:
-- `HVG_NW_1`, `NO_HVG_NW_1`
-- `HVG_NW_3`, `NO_HVG_NW_3`  
-- `HVG_NW_10`, `NO_HVG_NW_10`
+- `HVG_HW_1`, `NO_HVG_HW_1`
+- `HVG_HW_3`, `NO_HVG_HW_3`  
+- `HVG_HW_10`, `NO_HVG_HW_10`
+
+#### Available Filter Names:
+- `Butter` - Butterworth Low-pass Filter
+- `Kalman` - Kalman Filter
+- `Savgol` - Savitzky-Golay Filter
+- `Wavelet` - Wavelet Filter
+- `Wiener` - Wiener Filter
 
 #### Calculated Metrics:
 The script automatically calculates for all noise types:
@@ -221,13 +244,23 @@ The script automatically calculates for all noise types:
 
 #### Output Format:
 ```
-Computing metrics from predict sounds
-
+Mode - original
 noise           "R2"      "MAE"     "PESQ"    "SNR"     "STOI"
 white_noise_0.01 0.895123 0.045234 2.856789 18.234567 0.923456
 white_noise_0.05 0.823456 0.067890 2.634512 15.678901 0.876543
 ...
+Mode - LogNNet_filter - HVG_HW_1
+...
+Mode - LogNNet_and_standard_filter - HVG_HW_1 Wiener filter
+...
 ```
+#### Automatic Execution:
+The script automatically runs all three modes:
+1. **Original sounds metrics** - baseline quality assessment
+2. **LogNNet filter metrics** - for all 6 LogNNet variants
+3. **Combined filter metrics** - for all combinations of 5 standard filters and 6 LogNNet variants (30 combinations total)
+
+Total output: 1 + 6 + 30 = 37 metric tables
 
 ## Datasets
 
@@ -242,7 +275,10 @@ A standard dataset for evaluating speech enhancement algorithms, containing:
 **Citation**: 
 > Hu, Y. and Loizou, P. (2007). "Subjective evaluation and comparison of speech enhancement algorithms," Speech Communication, 49, 588-601.
 > 
+
 ## Complete Usage Cycle
+
+**Note**: The test mode creates filtered audio files in root directories `standard_filters/` or `LogNNet_and_standard_filters/` with organized subdirectories...
 
 ### Step 1: Data Preparation
 ```bash
@@ -271,8 +307,8 @@ python filters_audio_signal.py
 ### Step 3: Results Assessment
 ```bash
 # 1. Open compute_metrics.py
-# 2. Set the desired mode ('original' or 'predict')
-# 3. Configure LogNNet variant if using 'predict' mode
+# 2. The script automatically runs all modes: 'original', 'LogNNet_filtered_sounds', 'LogNNet_and_standard_filter'
+# 3. All LogNNet variants and filters are processed automatically
 # 4. Run metrics calculation
 python compute_metrics.py
 ```

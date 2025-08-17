@@ -357,6 +357,7 @@ def apply_filter_by_optimal_params(dir_contained_sounds: str, dir_pred_sound: st
             if not os.path.exists(clean_path) or not os.path.exists(noisy_path):
                 print(f"Missing test file for ID {id_}")
                 continue
+
             fs_test, clean_sig = wavfile.read(clean_path)
             fs_test2, noisy_sig = wavfile.read(noisy_path)
 
@@ -484,10 +485,9 @@ def training_optimal_params_by_predict_sound(dir_clear_sound: str, dir_pred_soun
 
 
 if __name__ == "__main__":
-
     # Operation mode flag
     # Options: 'train_original', 'train_predicted', 'test'
-    mode = 'train_predicted'
+    mode = 'train_original'
 
     # Define the sounds directory and signal-to-noise ratio level
     dir_contained_original_sounds = 'NOIZEUS'
@@ -513,7 +513,7 @@ if __name__ == "__main__":
 
     print('Training IDs:', training_ids)
     print('Test IDs:', test_ids)
-    print(f'\nSEARCH OPTIMAL PARAMETERS - mode - {mode}\n')
+    print(f'mode - {mode}\n')
 
     optimal_params = {}
     LogNNet_info_params = ['HVG_HW_1', 'NO_HVG_HW_1', 'HVG_HW_3',
@@ -554,14 +554,59 @@ if __name__ == "__main__":
             use_predict_info = info
             prefix_out_name = 'LogNNet_and_standard_filters'
 
-    str_out = 'BY ORIGINAL SOUND' if use_predict_info is None else f'BY LogNNet ({use_predict_info}) PREDICTION SOUND'
-    print(f'\nTEST FILTERS {str_out}')
+    elif mode == 'test':
+        json_files = []
+        if os.path.exists(dir_saving_optimal_params):
+            for filename in os.listdir(dir_saving_optimal_params):
+                if filename.endswith('.json'):
+                    json_files.append(os.path.join(dir_saving_optimal_params, filename))
 
-    # Testing: apply optimal parameters to each file from the test set
-    result_test = apply_filter_by_optimal_params(dir_contained_sounds=dir_contained_original_sounds,
-                                                 dir_pred_sound=dir_contained_predict_sounds,
-                                                 snr_level=snr_level,
-                                                 test_ids=test_ids,
-                                                 optimal_params=optimal_params,
-                                                 use_predict_info=use_predict_info,
-                                                 prefix_out_name=prefix_out_name)
+        if not json_files:
+            print(f"Warning: No JSON files found in {dir_saving_optimal_params} directory")
+        else:
+            print(f"Found {len(json_files)} JSON files for testing:")
+            for json_file in json_files:
+                print(f"  - {os.path.basename(json_file)}")
+            print()
+
+        for json_file in json_files:
+            with open(json_file, 'r') as f:
+                optimal_params = json.load(f)
+            json_filename = os.path.basename(json_file)
+            print(f"Testing with parameters from: {json_filename}")
+
+            # Extract info from filename
+            if 'original' in json_filename.lower():
+                use_predict_info = None
+                prefix_out_name = None
+                str_out = 'BY ORIGINAL SOUND'
+            else:
+                use_predict_info = json_filename.replace(
+                    'optimal_params_', '').replace('.json', '')
+                prefix_out_name = 'LogNNet_and_standard_filters'
+                str_out = f'BY LogNNet ({use_predict_info}) PREDICTION SOUND'
+
+            result_test = apply_filter_by_optimal_params(
+                dir_contained_sounds=dir_contained_original_sounds,
+                dir_pred_sound=dir_contained_predict_sounds,
+                snr_level=snr_level,
+                test_ids=available_ids,
+                optimal_params=optimal_params,
+                use_predict_info=use_predict_info,
+                prefix_out_name=prefix_out_name
+            )
+
+    if mode in ['train_original', 'train_predicted']:
+        str_out = 'BY ORIGINAL SOUND' if use_predict_info is None else f'BY LogNNet ({use_predict_info}) PREDICTION SOUND'
+        str_out = '' if mode == 'test' else str_out
+        print(f'\nTEST FILTERS {str_out}')
+
+        # Testing: apply optimal parameters to each file from the test set
+        result_test = apply_filter_by_optimal_params(
+            dir_contained_sounds=dir_contained_original_sounds,
+            dir_pred_sound=dir_contained_predict_sounds,
+            snr_level=snr_level,
+            test_ids=available_ids,
+            optimal_params=optimal_params,
+            use_predict_info=use_predict_info,
+            prefix_out_name=prefix_out_name)

@@ -41,26 +41,20 @@ def synchronize_signals(signal_one: np.ndarray, signal_two: np.ndarray) -> Tuple
         :return: Tuple[np.ndarray, np.ndarray] - The trimmed signals aligned in length.
     """
 
-    len_clean = len(signal_one)
-    len_noisy = len(signal_two)
+    len_one  = len(signal_one)
+    len_two  = len(signal_two)
 
+    target_length = min(len_one, len_two)
     #  Check which signal is longer and calculate the number of points to discard
-    if len_clean > len_noisy:
-        diff = len_clean - len_noisy
-        trim = diff // 2
+    if len_one > target_length:
+        start_idx_one = (len_one - target_length) // 2
+        signal_one = signal_one[start_idx_one: start_idx_one + target_length]
 
-        signal_one_trimmed = signal_one[trim:len_clean - trim]
-        return signal_one_trimmed, signal_two
+    if len_two > target_length:
+        start_idx_two = (len_two - target_length) // 2
+        signal_two = signal_two[start_idx_two: start_idx_two + target_length]
 
-    elif len_noisy > len_clean:
-        diff = len_noisy - len_clean
-        trim = diff // 2
-        signal_two_trimmed = signal_two[trim:len_noisy - trim]
-        return signal_one, signal_two_trimmed
-
-    else:
-        # Lengths are equal, return the original signals
-        return signal_one, signal_two
+    return signal_one, signal_two
 
 
 def computing_metrics(mode: str = 'original', additional_LogNNet_param = None, name_filter = None):
